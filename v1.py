@@ -10,6 +10,7 @@ async def main():
 async def foo():
     print("foo")
     await asyncio.sleep(1)
+    print("bar")
 
 
 asyncio.run(main())

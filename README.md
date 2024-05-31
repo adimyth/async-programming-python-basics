@@ -24,9 +24,16 @@ async def foo():
 asyncio.run(main())
 ```
 
-Even though we have written asynchronous code, this is not actually running asynchronusly. The event loop created using `asyncio.run` is running the `main` function.
+Even though we have written asynchronous code, this is not actually running asynchronusly. The event loop is created using `asyncio.run` which runns the `main` function.
 
-Inside the `main` function we await `foo` function. The `foo` function is an asynchronous function that sleeps for 1 second. The `main` function will wait for the `foo` function to complete before printing "World". So, the order is -
+The execution order will be as follows -
+1. `asyncio.run(main())` is called, which runs the main coroutine.
+2. Inside main, "Hello" is printed, and then it awaits `foo()`.
+3. The `foo` coroutine starts running, prints "foo", and then encounters `await asyncio.sleep(1)`.
+4. At this point, `foo` pauses and control is returned to the event loop, which allows other tasks to run.
+5. Since there are no other tasks in this example, the event loop waits for the sleep period (1 second) to complete.
+6. After 1 second, `foo` resumes execution, prints "bar", and then completes.
+7. Control returns to the main coroutine, which then prints "World" and completes.
 
 
 <span style="color:yellow">Output</span>
@@ -35,6 +42,7 @@ Inside the `main` function we await `foo` function. The `foo` function is an asy
 Hello
 foo
 -- wait for 1 second --
+bar
 World
 ```
 
@@ -56,6 +64,7 @@ def main():
 def foo():
     print("foo")
     time.sleep(1)
+    print("bar")
 
 main()
 ```
