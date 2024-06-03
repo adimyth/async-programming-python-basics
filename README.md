@@ -3,6 +3,7 @@
 1. Golden Rule: **Never block the event loop**
 2. Key Takeaway: **There can only be one thing that the event loop is doing at any given time.**
 3. Execution: **There will be some additional overhead in running async code & switching between tasks. This will lead to increased time comapred to sync code**
+4. Yet another key takeaway: **Just adding `async` & `await` doesn't guarantee concurrency. To actually run things concurrently, you need to create tasks. See `v4` & `v5` below & their differences to understand it.**
 
 ## v1
 
@@ -113,7 +114,7 @@ This happened because the `main` function completed before the `foo` function co
 
 
 ## v3
-To fix this, we need to await the task created using `asyncio.create_task`.
+To fix this, we need to `await` the task created using `asyncio.create_task`.
 
 ```python
 import asyncio
@@ -151,7 +152,7 @@ World
 
 😞 But note that it still takes 1.2s to run, so from these examples the benefit of async is not clear at all.
 
-Where async really shines is when you have multiple tasks running concurrently. In the next example, we will run multiple tasks concurrently.
+🧠 Where async really shines is when you have multiple tasks running concurrently. In the next example, we will run multiple tasks concurrently.
 
 ## v4
 ```python
@@ -196,6 +197,52 @@ World
 
 
 ## v5
+<span style="color:orange">***Just to show that if you don't wrap the coroutines as tasks, they will run sequentially. So, here creating the coroutine using `asyncio.create_task` is important for concurrency.****</span>
+
+
+```python
+import asyncio
+
+
+async def main():
+    print("Hello")
+    coroutine1 = foo(x="foo", y="bar")
+    coroutine1 = foo(x="baz", y="qux")
+    await coroutine1
+    await coroutine1
+    print("World")
+
+
+async def foo(x: str, y: str):
+    print(x)
+    await asyncio.sleep(1)
+    print(y)
+
+
+asyncio.run(main())
+```
+
+<span style="color:yellow">Output</span>
+```bash
+Hello
+foo
+-- wait for 1 second --
+bar
+baz
+-- wait for 1 second --
+qux
+World
+```
+
+<span style="color:red">Execution Time</span>
+~ 2.2 seconds
+
+Here, the 2 coroutines run sequentially, so the total time taken is the sum of the time taken by each coroutine.
+
+> 😄 Just using `async` and `await` keywords doesn't make your code run concurrently. You need to create tasks using `asyncio.create_task` to run them concurrently.
+
+
+## v6
 To better understand the concurrency & how the context switch happens based on the `await` statement as well as the amount of time a blocking function runs for (sleep time in our case), let's look at the following example -
 
 ```python
@@ -252,7 +299,7 @@ World
 
 > 🤔 It would be very interesting to see what would happen if there were 2 tasks & we awaited one of the tasks & didn't await the other.
 
-## v6
+## v7
 Now what would happen if we await the task created using `asyncio.create_task`?
 
 ```python
@@ -303,7 +350,7 @@ This is on expected lines. The execution order will be as follows -
 10. The `main()` coroutine has completed, and the event loop closes.
 
 
-## v7
+## v8
 For the final variation, we will just switch the amount of time the `foo` function sleeps for and the amount of time the `main` function sleeps for.
 
 ```python
@@ -354,7 +401,7 @@ The execution order will be as follows -
 
 
 
-## v8
+## v9
 The most complex example - 
 
 ```python
@@ -435,3 +482,56 @@ The execution time will be ~ 6.2 seconds.
 
 
 **NOTE**: If the `await` statement is in the `main` function, the event loop will switch to the next task in the queue. If the `await` statement is in a task, the event loop will switch to the next task in the queue.
+
+## v10
+You can create a list of tasks & run them concurrently using `asyncio.TaskGroup` as well.
+
+```python
+import asyncio
+
+
+async def fetch_data(id, sleep_time):
+    print(f"Fetching data with id: {id}")
+    await asyncio.sleep(sleep_time)
+    print(f"Data with id: {id} fetched successfully")
+    return {"id": id, "data": id}
+
+
+async def main():
+    tasks = []
+    async with asyncio.TaskGroup() as tg:
+        for i in range(1, 4):
+            task = tg.create_task(fetch_data(i, i))
+            tasks.append(task)
+
+    results = await asyncio.gather(*tasks)
+
+    for result in results:
+        print(result)
+
+
+asyncio.run(main())
+```
+
+<span style="color:yellow">Output</span>
+```bash
+Fetching data with id: 1
+Fetching data with id: 2
+Fetching data with id: 3
+-- wait for 1 second --
+Data with id: 1 fetched successfully
+-- wait for another 1 second --
+Data with id: 2 fetched successfully
+-- wait for another 1 second --
+Data with id: 3 fetched successfully
+{'id': 1, 'data': 1}
+{'id': 2, 'data': 2}
+{'id': 3, 'data': 3}
+```
+
+<span style="color:red">Execution Time</span>
+~ 3.2 seconds
+
+Here, all the 3 tasks ran concurrently & the total time taken was the time taken by the longest running task.
+
+`async.TaskGroup` is a context manager that creates a group of tasks. You can create tasks using `tg.create_task` and then await the completion of all tasks using `await tg`.

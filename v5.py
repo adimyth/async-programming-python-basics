@@ -3,17 +3,17 @@ import asyncio
 
 async def main():
     print("Hello")
-    task = asyncio.create_task(foo())
-    # we have created the task, but we are not awaiting it
-    # sleep for 1 second
-    await asyncio.sleep(1)
+    coroutine1 = foo(x="foo", y="bar")
+    coroutine2 = foo(x="baz", y="qux")
+    await coroutine1
+    await coroutine2
     print("World")
 
 
-async def foo():
-    print("foo")
-    await asyncio.sleep(10)
-    print("bar")
+async def foo(x: str, y: str):
+    print(x)
+    await asyncio.sleep(1)
+    print(y)
 
 
 asyncio.run(main())
